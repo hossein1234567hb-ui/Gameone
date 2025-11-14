@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>بازی معمایی ۱۰ مرحله‌ای</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Tahoma, sans-serif; }
+        body { background: #0f0f1e; color: #e0e0ff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; overflow-x: hidden; }
+        .container { width: 100%; max-width: 500px; background: rgba(30,30,60,0.9); border-radius: 20px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; margin-top: 20px; }
+        h1 { font-size: 1.8rem; margin-bottom: 15px; color: #a0d8ff; }
+        .level { display: none; animation: fadeIn 0.6s; }
+        .level.active { display: block; }
+        .puzzle { margin: 20px 0; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 12px; line-height: 1.8; }
+        .options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0; }
+        .option { background: #3a3a6e; color: #fff; padding: 14px; border-radius: 12px; cursor: pointer; transition: 0.3s; font-size: 1rem; border: 2px solid transparent; }
+        .option:hover { background: #5a5a9e; transform: translateY(-3px); }
+        .option.correct { background: #2e8b57 !important; border-color: #90ee90; }
+        .option.wrong { background: #8b2e2e !important; border-color: #ff6347; }
+        .btn { background: #6a5acd; color: white; border: none; padding: 12px 24px; margin: 10px 5px; border-radius: 12px; cursor: pointer; font-size: 1rem; transition: 0.3s; }
+        .btn:hover { background: #7a6be0; transform: scale(1.05); }
+        .progress { height: 10px; background: #333; border-radius: 5px; margin: 20px 0; overflow: hidden; }
+        .progress-bar { height: 100%; background: linear-gradient(90deg, #6a5acd, #a0d8ff); width: 0%; transition: width 0.5s; }
+        .hint { font-size: 0.9rem; color: #aaa; margin-top: 15px; cursor: pointer; }
+        .hint:hover { color: #fff; }
+
+        /* مرحله ۳ - Drag & Drop */
+        .draggable { width: 60px; height: 60px; background: #ff6b6b; border-radius: 50%; margin: 10px auto; cursor: move; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 1.5rem; user-select: none; touch-action: none; }
+        .dropzone { width: 80px; height: 80px; border: 3px dashed #666; border-radius: 50%; margin: 20px auto; display: flex; align-items: center; justify-content: center; font-size: 2rem; color: #666; }
+        .dropzone.active { border-color: #6a5acd; background: rgba(106,90,205,0.1); }
+
+        /* مرحله ۵ - اعداد زوج */
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px 0; }
+        .cell { width: 80px; height: 80px; background: #2a2a4a; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; cursor: pointer; transition: 0.3s; }
+        .cell.active { background: #6a5acd; color: white; }
+
+        /* مرحله ۶ -迷宫 */
+        .maze { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; width: fit-content; margin: 20px auto; }
+        .maze > div { width: 50px; height: 50px; }
+        .wall { background: #222; pointer-events: none; }
+        .path { background: #444; cursor: pointer; }
+        .player { background: #6a5acd !important; border-radius: 50%; }
+        .exit { background: #32cd32 !important; }
+
+        /* مرحله ۹ - ترتیب شکل‌ها */
+        .drag-grid { display: flex; justify-content: center; gap: 15px; margin: 20px 0; }
+        .drop-grid { display: flex; justify-content: center; gap: 15px; margin-top: 20px; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @media (max-width: 480px) {
+            .options { grid-template-columns: 1fr; }
+            .cell, .draggable, .dropzone, .maze > div { width: 60px; height: 60px; font-size: 1.2rem; }
+            h1 { font-size: 1.5rem; }
+            .maze { gap: 2px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>بازی معمایی ۱۰ مرحله‌ای</h1>
+        <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+
+        <!-- مرحله ۱ -->
+        <div class="level active" id="level1">
+            <div class="puzzle">
+                <p><strong>مرحله ۱:</strong> کدام عدد بعدی است؟</p>
+                <p>۲، ۴، ۸، ۱۶، ؟</p>
+            </div>
+            <div class="options">
+                <div class="option" data-answer="32">۳۲</div>
+                <div class="option" data-answer="24">۲۴</div>
+                <div class="option" data-answer="20">۲۰</div>
+                <div class="option" data-answer="18">۱۸</div>
+            </div>
+            <div class="hint" onclick="showHint(1)">راهنمایی</div>
+        </div>
+
+        <!-- مرحله ۲ -->
+        <div class="level" id="level2">
+            <div class="puzzle">
+                <p><strong>مرحله ۲:</strong> ترتیب درست اعداد را بچینید</p>
+                <p>از کوچک به بزرگ: ۷، ۳، ۹، ۱</p>
+            </div>
+            <div class="options">
+                <div class="option" data-answer="1,3,7,9">۱، ۳، ۷، ۹</div>
+                <div class="option" data-answer="1,7,3,9">۱، ۷، ۳، ۹</div>
+                <div class="option" data-answer="3,1,7,9">۳، ۱، ۷، ۹</div>
+                <div class="option" data-answer="9,7,3,1">۹، ۷، ۳، ۱</div>
+            </div>
+        </div>
+
+        <!-- مرحله ۳ -->
+        <div class="level" id="level3">
+            <div class="puzzle">
+                <p><strong>مرحله ۳:</strong> شکل را به محل درست بکشید</p>
+            </div>
+            <div id="drag1" class="draggable" draggable="true">★</div>
+            <div id="drop1" class="dropzone">؟</div>
+            <button class="btn" onclick="checkDrag()">بررسی</button>
+        </div>
+
+        <!-- مرحله ۴ -->
+        <div class="level" id="level4">
+            <div class="puzzle">
+                <p><strong>مرحله ۴:</strong> الگوی زیر را کامل کنید</p>
+                <div class="grid">
+                    <div class="cell">۱</div><div class="cell">۴</div><div class="cell">۹</div>
+                    <div class="cell">۱۶</div><div class="cell">؟</div><div class="cell">۳۶</div>
+                    <div class="cell">۴۹</div><div class="cell">۶۴</div><div class="cell">۸۱</div>
+                </div>
+            </div>
+            <div class="options">
+                <div class="option" data-answer="25">۲۵</div>
+                <div class="option" data-answer="20">۲۰</div>
+                <div class="option" data-answer="30">۳۰</div>
+                <div class="option" data-answer="18">۱۸</div>
+            </div>
+        </div>
+
+        <!-- مرحله ۵ -->
+        <div class="level" id="level5">
+            <div class="puzzle">
+                <p><strong>مرحله ۵:</strong> روی اعداد زوج ضربه بزنید</p>
+                <div class="grid">
+                    <div class="cell" data-num="1">۱</div><div class="cell" data-num="2">۲</div><div class="cell" data-num="3">۳</div>
+                    <div class="cell" data-num="4">۴</div><div class="cell" data-num="5">۵</div><div class="cell" data-num="6">۶</div>
+                    <div class="cell" data-num="7">۷</div><div class="cell" data-num="8">۸</div><div class="cell" data-num="9">۹</div>
+                </div>
+            </div>
+            <button class="btn" onclick="checkEven()">بررسی</button>
+            <p id="evenResult" style="margin-top:10px;"></p>
+        </div>
+
+        <!-- مرحله ۶ -迷宫 -->
+        <div class="level" id="level6">
+            <div class="puzzle">
+                <p><strong>مرحله ۶:</strong> راه خروج را پیدا کنید</p>
+                <div class="maze" id="maze">
+                    <div class="wall"></div>
+                    <div class="path player" data-x="1" data-y="0"></div>
+                    <div class="wall"></div>
+                    <div class="wall"></div>
+                    <div class="wall"></div>
+
+                    <div class="path" data-x="0" data-y="1"></div>
+                    <div class="path" data-x="1" data-y="1"></div>
+                    <div class="path" data-x="2" data-y="1"></div>
+                    <div class="wall"></div>
+                    <div class="wall"></div>
+
+                    <div class="wall"></div>
+                    <div class="path" data-x="1" data-y="2"></div>
+                    <div class="path" data-x="2" data-y="2"></div>
+                    <div class="path" data-x="3" data-y="2"></div>
+                    <div class="wall"></div>
+
+                    <div class="wall"></div>
+                    <div class="wall"></div>
+                    <div class="wall"></div>
+                    <div class="path" data-x="3" data-y="3"></div>
+                    <div class="path" data-x="4" data-y="3"></div>
+
+                    <div class="wall"></div>
+                    <div class="wall"></div>
+                    <div class="wall"></div>
+                    <div class="wall"></div>
+                    <div class="path exit" data-x="4" data-y="4"></div>
+                </div>
+                <p style="font-size:0.9rem; color:#aaa; margin-top:10px;">فقط به بالا، پایین، چپ، راست بروید</p>
+            </div>
+        </div>
+
+        <!-- مرحله ۷ -->
+        <div class="level" id="level7">
+            <div class="puzzle">
+                <p><strong>مرحله ۷:</strong> کدام کلمه متفاوت است؟</p>
+            </div>
+            <div class="options">
+                <div class="option" data-answer="سیب">سیب</div>
+                <div class="option" data-answer="موز">موز</div>
+                <div class="option" data-answer="هویج">هویج</div>
+                <div class="option" data-answer="پرتقال">پرتقال</div>
+            </div>
+        </div>
+
+        <!-- مرحله ۸ -->
+        <div class="level" id="level8">
+            <div class="puzzle">
+                <p><strong>مرحله ۸:</strong> معادله را حل کنید</p>
+                <p>۲+۳=۱۰، ۸+۶=۸۰، ۵+۴=۴۵ → ۷+۳=؟</p>
+            </div>
+            <div class="options">
+                <div class="option" data-answer="70">۷۰</div>
+                <div class="option" data-answer="10">۱۰</div>
+                <div class="option" data-answer="21">۲۱</div>
+                <div class="option" data-answer="30">۳۰</div>
+            </div>
+        </div>
+
+        <!-- مرحله ۹ -->
+        <div class="level" id="level9">
+            <div class="puzzle">
+                <p><strong>مرحله ۹:</strong> شکل‌ها را مرتب کنید (کوچک → بزرگ)</p>
+                <div class="drag-grid">
+                    <div class="draggable" draggable="true" data-order="3">△</div>
+                    <div class="draggable" draggable="true" data-order="1">▲</div>
+                    <div class="draggable" draggable="true" data-order="2">▴</div>
+                </div>
+                <div class="drop-grid">
+                    <div class="dropzone" data-target="1"></div>
+                    <div class="dropzone" data-target="2"></div>
+                    <div class="dropzone" data-target="3"></div>
+                </div>
+            </div>
+            <button class="btn" onclick="checkOrder()">بررسی ترتیب</button>
+        </div>
+
+        <!-- مرحله ۱۰ -->
+        <div class="level" id="level10">
+            <div class="puzzle">
+                <p><strong>مرحله ۱۰:</strong> رمز را پیدا کنید</p>
+                <p>A=۱، B=۲، ... → <strong>LOVE</strong> = ؟</p>
+            </div>
+            <div class="options">
+                <div class="option" data-answer="54">۵۴</div>
+                <div class="option" data-answer="30">۳۰</div>
+                <div class="option" data-answer="12">۱۲</div>
+                <div class="option" data-answer="48">۴۸</div>
+            </div>
+            <p style="margin-top:20px; font-size:1.5rem;">تبریک! بازی تمام شد! 🎉</p>
+        </div>
+
+        <button class="btn" id="nextBtn" onclick="nextLevel()" style="display:none;">مرحله بعد</button>
+    </div>
+
+    <script>
+        let currentLevel = 1;
+        const totalLevels = 10;
+        let selectedEven = [];
+        let playerPos = { x: 1, y: 0 };
+        let dragged1 = false;
+
+        function updateProgress() {
+            const percent = (currentLevel / totalLevels) * 100;
+            document.getElementById('progressBar').style.width = percent + '%';
+        }
+
+        function nextLevel() {
+            document.getElementById(`level${currentLevel}`).classList.remove('active');
+            currentLevel++;
+            if (currentLevel <= totalLevels) {
+                document.getElementById(`level${currentLevel}`).classList.add('active');
+                updateProgress();
+                if (currentLevel === 6) initMaze();
+                if (currentLevel === 9) initDragDrop();
+            }
+            document.getElementById('nextBtn').style.display = 'none';
+        }
+
+        // مراحل انتخابی
+        document.querySelectorAll('.option').forEach(opt => {
+            opt.addEventListener('click', function() {
+                const level = this.closest('.level').id.replace('level', '');
+                const answers = {1:'32',2:'1,3,7,9',4:'25',7:'هویج',8:'70',10:'54'};
+                const correct = answers[level];
+                if (this.dataset.answer === correct) {
+                    this.classList.add('correct');
+                    setTimeout(() => document.getElementById('nextBtn').style.display = 'block', 600);
+                } else {
+                    this.classList.add('wrong');
+                }
+            });
+        });
+
+        // مرحله ۳
+        document.getElementById('drag1').addEventListener('dragstart', e => e.dataTransfer.setData('text', 'star'));
+        document.getElementById('drop1').addEventListener('dragover', e => e.preventDefault());
+        document.getElementById('drop1').addEventListener('drop', e => {
+            e.preventDefault();
+            if (e.dataTransfer.getData('text') === 'star') {
+                document.getElementById('drop1').innerHTML = '★';
+                document.getElementById('drop1').style.color = '#ff6b6b';
+                dragged1 = true;
+            }
+        });
+        window.checkDrag = () => dragged1 ? document.getElementById('nextBtn').style.display = 'block' : alert('شکل را بکشید!');
+
+        // مرحله ۵
+        document.querySelectorAll('#level5 .cell').forEach(cell => {
+            cell.addEventListener('click', () => {
+                cell.classList.toggle('active');
+                const n = parseInt(cell.dataset.num);
+                selectedEven.includes(n) ? selectedEven = selectedEven.filter(x => x !== n) : selectedEven.push(n);
+            });
+        });
+        window.checkEven = () => {
+            const correct = [2,4,6,8].every(x => selectedEven.includes(x)) && selectedEven.length === 4;
+            document.getElementById('evenResult').textContent = correct ? 'درست!' : 'فقط اعداد زوج!';
+            document.getElementById('evenResult').style.color = correct ? '#90ee90' : '#ff6347';
+            if (correct) setTimeout(() => document.getElementById('nextBtn').style.display = 'block', 800);
+        };
+
+        // مرحله ۶
+        function initMaze() {
+            document.querySelectorAll('#maze .path, #maze .exit').forEach(cell => {
+                cell.addEventListener('click', () => {
+                    const x = parseInt(cell.dataset.x), y = parseInt(cell.dataset.y);
+                    if (Math.abs(x - playerPos.x) + Math.abs(y - playerPos.y) === 1) {
+                        document.querySelector('.player').classList.remove('player');
+                        cell.classList.add('player');
+                        playerPos = { x, y };
+                        if (cell.classList.contains('exit')) {
+                            setTimeout(() => {
+                                alert('خروج پیدا شد! 🎉');
+                                document.getElementById('nextBtn').style.display = 'block';
+                            }, 300);
+                        }
+                    }
+                });
+            });
+        }
+
+        // مرحله ۹
+        function initDragDrop() {
+            document.querySelectorAll('#level9 .draggable').forEach(d => {
+                d.addEventListener('dragstart', e => e.dataTransfer.setData('text', d.dataset.order));
+            });
+            document.querySelectorAll('#level9 .dropzone').forEach(d => {
+                d.addEventListener('dragover', e => e.preventDefault());
+                d.addEventListener('drop', e => {
+                    const data = e.dataTransfer.getData('text');
+                    const shape = document.querySelector(`[data-order="${data}"]`).innerHTML;
+                    d.innerHTML = shape;
+                    d.dataset.value = data;
+                    d.style.color = '#6a5acd';
+                });
+            });
+            window.checkOrder = () => {
+                const zones = document.querySelectorAll('#level9 .dropzone');
+                const correct = zones[0].dataset.value == 1 && zones[1].dataset.value == 2 && zones[2].dataset.value == 3;
+                alert(correct ? 'ترتیب درست!' : 'ترتیب اشتباه!');
+                if (correct) document.getElementById('nextBtn').style.display = 'block';
+            };
+        }
+
+        function showHint(level) {
+            const hints = {
+                1: "هر عدد دو برابر قبلی است.",
+                2: "از کوچک به بزرگ مرتب کنید.",
+                3: "ستاره را به دایره بکشید.",
+                4: "مربع اعداد: ۵×۵=۲۵",
+                5: "اعداد زوج: ۲،۴،۶،۸",
+                6: "فقط به سلول مجاور بروید.",
+                7: "سه میوه، یک سبزی!",
+                8: "الگو: (a+b) × (a-b)",
+                9: "شکل کوچک → بزرگ",
+                10: "L=12, O=15, V=22, E=5 → جمع"
+            };
+            alert(hints[level]);
+        }
+
+        updateProgress();
+    </script>
+</body>
+</html>
